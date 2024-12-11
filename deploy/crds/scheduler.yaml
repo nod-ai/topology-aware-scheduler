@@ -1,0 +1,43 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: schedulerconfigs.topology.scheduler
+spec:
+  group: topology.scheduler
+  versions:
+    - name: v1alpha1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                scoringWeights:
+                  type: object
+                  properties:
+                    resourceAvailability:
+                      type: number
+                    topologyAlignment:
+                      type: number
+                    domainUtilization:
+                      type: number
+                    historicalPerformance:
+                      type: number
+                topologyConstraints:
+                  type: object
+                  properties:
+                    maxNodesPerLeaf:
+                      type: integer
+                    maxGPUsPerLeaf:
+                      type: integer
+  scope: Namespaced
+  names:
+    plural: schedulerconfigs
+    singular: schedulerconfig
+    kind: SchedulerConfig
+    shortNames:
+      - sc

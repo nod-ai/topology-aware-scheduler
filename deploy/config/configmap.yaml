@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: topology-scheduler-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    apiVersion: topology.scheduler/v1alpha1
+    kind: SchedulerConfig
+    metadata:
+      name: topology-scheduler-config
+    spec:
+      scoringWeights:
+        resourceAvailability: 0.4
+        topologyAlignment: 0.3
+        domainUtilization: 0.2
+        historicalPerformance: 0.1
+      topologyConstraints:
+        maxNodesPerLeaf: 4
+        maxGPUsPerLeaf: 32

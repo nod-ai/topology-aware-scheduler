@@ -1,0 +1,13 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: topology-scheduler
+subjects:
+- kind: ServiceAccount
+  name: topology-scheduler
+  namespace: kube-system
+roleRef:
+  kind: ClusterRole
+  name: topology-scheduler
+  apiGroup: rbac.authorization.k8s.io
