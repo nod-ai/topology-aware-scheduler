@@ -3,7 +3,7 @@ VERSION ?= latest
 BUILD_DATE = $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 BINARY_NAME = topology-scheduler
 GOARCH = amd64
-MODULE_NAME = github.com/yourusername/topology-aware-gpu-scheduler
+MODULE_NAME = github.com/nod-ai/topology-aware-gpu-scheduler
 
 # Determine OS-specific variables
 ifeq ($(OS),Windows_NT)
