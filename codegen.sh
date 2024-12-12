@@ -5,7 +5,7 @@ set -o pipefail
 SCRIPT_DIR=$(dirname $(realpath "${BASH_SOURCE[0]}"))
 ROOT_DIR=$(pwd)
 CODEGEN_PKG=$(go env GOPATH)/pkg/mod/k8s.io/code-generator@v0.28.0
-API_PKG_PATH="github.com/iamakanshab/topology-aware-gpu-scheduler"
+API_PKG_PATH="github.com/nod-ai/topology-aware-scheduler"
 
 echo "Cleaning up previously generated code..."
 rm -rf pkg/generated/*
