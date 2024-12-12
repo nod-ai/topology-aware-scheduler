@@ -27,7 +27,7 @@ A custom Kubernetes scheduler extension that optimizes GPU workload placement ba
 
 ```bash
 # Clone repository
-git clone https://github.com/your-org/topology-aware-scheduler
+git clone https://github.com/nod-ai/topology-aware-scheduler
 
 # Build
 make build
