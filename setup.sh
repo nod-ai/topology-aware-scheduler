@@ -130,8 +130,8 @@ chmod 755 $TMP_DIR
 echo "Generating client codes..."
 bash "${CODEGEN_PKG}/kube_codegen.sh" \
   "client,lister,informer" \
-  github.com/iamakanshab/topology-aware-gpu-scheduler/pkg/generated \
-  github.com/iamakanshab/topology-aware-gpu-scheduler/pkg/apis \
+  github.com/nod-ai/topology-aware-scheduler/pkg/generated \
+  github.com/nod-ai/topology-aware-scheduler/pkg/apis \
   "topology:v1alpha1" \
   --output-base "${TMP_DIR}" \
   --go-header-file "${SCRIPT_ROOT}/boilerplate.go.txt"
@@ -140,7 +140,7 @@ bash "${CODEGEN_PKG}/kube_codegen.sh" \
 mkdir -p "${SCRIPT_ROOT}/pkg/generated"
 
 # Copy generated files to the right location
-cp -r "${TMP_DIR}/github.com/iamakanshab/topology-aware-gpu-scheduler/pkg/generated"/* "${SCRIPT_ROOT}/pkg/generated/"
+cp -r "${TMP_DIR}/github.com/nod-ai/topology-gpu-scheduler/pkg/generated"/* "${SCRIPT_ROOT}/pkg/generated/"
 
 # Cleanup
 rm -rf "${TMP_DIR}"
