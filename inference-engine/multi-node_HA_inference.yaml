@@ -1,0 +1,215 @@
+# GPU Affinity and Node Selection
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: inference-server
+spec:
+  serviceName: inference
+  replicas: 8
+  podManagementPolicy: Parallel  # For faster recovery
+  selector:
+    matchLabels:
+      app: inference-service
+  template:
+    metadata:
+      labels:
+        app: inference-service
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+    spec:
+      # GPU Affinity Rules
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: gpu.amd.com/model
+                operator: In
+                values: ["MI250", "MI300"]  # Specific GPU models
+              - key: gpu.amd.com/available
+                operator: Exists
+              - key: failure-domain.beta.kubernetes.io/zone
+                operator: In
+                values: ["zone1", "zone2"]  # Zone spreading
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values: ["inference-service"]
+            topologyKey: "kubernetes.io/hostname"
+      
+      # Node Failure Handling
+      terminationGracePeriodSeconds: 60
+      initContainers:
+      - name: model-validator
+        image: model-checker:latest
+        command: ['sh', '-c', 'check_model_integrity.sh']
+        volumeMounts:
+        - name: model-weights
+          mountPath: /models
+      
+      containers:
+      - name: inference
+        image: inference-image:latest
+        # Health Checks
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 5
+        
+        # Added Lifecycle Hooks for Recovery
+        lifecycle:
+          preStop:
+            exec:
+              command: ["/bin/sh", "-c", "sleep 30"]
+        
+        # Monitoring Setup (could use existing monitorinh if exists)
+        ports:
+        - containerPort: 8080
+          name: inference
+        - containerPort: 9090
+          name: metrics
+        
+        env:
+        - name: <NODE_NAME>
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        
+        volumeMounts:
+        - name: model-weights
+          mountPath: /models
+        - name: monitoring-config
+          mountPath: /etc/monitoring
+        - name: recovery-scripts
+          mountPath: /scripts
+        
+        resources:
+          limits:
+            amd.com/gpu: "1"
+            memory: "180Gi"
+          requests:
+            amd.com/gpu: "1"
+            memory: "170Gi"
+
+      # Added Recovery Sidecar
+      - name: recovery-monitor
+        image: recovery-monitor:latest
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          while true; do
+            if ! curl -f http://localhost:8080/health; then
+              echo "Health check failed, initiating recovery"
+              /scripts/pod-recovery.sh $POD_NAME
+            fi
+            sleep 30
+          done
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+
+      volumes:
+      - name: monitoring-config
+        configMap:
+          name: monitoring-config
+      - name: recovery-scripts
+        configMap:
+          name: recovery-scripts
+          defaultMode: 0755
+
+  volumeClaimTemplates:
+  - metadata:
+      name: model-weights
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: local-storage
+      resources:
+        requests:
+          storage: 200Gi
+
+---
+# Added Recovery Scripts ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: recovery-scripts
+data:
+  pod-recovery.sh: |
+    #!/bin/bash
+    set -e
+    
+    recover_pod() {
+      local pod_name=$1
+      local node_name=$(kubectl get pod $pod_name -o jsonpath='{.spec.nodeName}')
+      
+      echo "Starting recovery for pod $pod_name on node $node_name"
+      kubectl cordon $node_name
+      kubectl delete pod $pod_name --grace-period=60
+      kubectl wait --for=delete pod/$pod_name --timeout=120s
+      kubectl uncordon $node_name
+      echo "Recovery completed for pod $pod_name"
+    }
+
+---
+# Link Existing Monitoring ConfigMap
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: monitoring-config
+data:
+  prometheus.yml: |
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: 'inference-metrics'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: inference-service
+            action: keep
+
+---
+# Link Existing Pod Disruption Budget
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: inference-pdb
+spec:
+  minAvailable: "75%"
+  selector:
+    matchLabels:
+      app: inference-service
+
+---
+# <link existing solution> Existing Monitoring Service 
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-metrics
+  labels:
+    app: inference-metrics
+spec:
+  ports:
+  - port: 9090
+    name: metrics
+  selector:
+    app: inference-service
