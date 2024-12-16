@@ -18,7 +18,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
     spec:
-      # 1. GPU Affinity Rules
+      # GPU Affinity Rules
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -41,7 +41,7 @@ spec:
                 values: ["inference-service"]
             topologyKey: "kubernetes.io/hostname"
       
-      # 2. Node Failure Handling
+      #  Node Failure Handling
       terminationGracePeriodSeconds: 60
       initContainers:
       - name: model-validator
@@ -74,7 +74,7 @@ spec:
             exec:
               command: ["/bin/sh", "-c", "sleep 30"]
         
-        # 3. Monitoring Setup
+        # 3. (Reuse existing)Monitoring Setup
         ports:
         - containerPort: 8080
           name: inference
