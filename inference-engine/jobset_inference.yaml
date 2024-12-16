@@ -1,0 +1,81 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-lb
+spec:
+  type: LoadBalancer
+  ports:
+  - port: 80
+    targetPort: 8080
+    nodePort: 30000
+  selector:
+    app: inference-service
+
+---
+apiVersion: jobset.x-k8s.io/v1alpha2
+kind: JobSet
+metadata:
+  name: inference-server
+  labels:
+    kueue.x-k8s.io/queue-name: multislice-queue
+spec:
+  replicatedJobs:
+    - name: inference
+      template:
+        spec:
+          parallelism: 8  # 8 pods in parallel
+          completions: 8
+          template:
+            metadata:
+              labels:
+                app: inference-service
+            spec:
+              restartPolicy: OnFailure
+              affinity:
+                nodeAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                    nodeSelectorTerms:
+                    - matchExpressions:
+                      - key: gpu.amd.com/available
+                        operator: Exists
+              containers:
+              - name: inference
+                image: inference-image:latest
+                env:
+                - name: NODE_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: spec.nodeName
+                - name: JOB_COMPLETION_INDEX
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+                volumeMounts:
+                - name: model-weights
+                  mountPath: /models
+              volumes:
+              - name: model-weights
+                persistentVolumeClaim:
+                  claimName: model-weights-${JOB_COMPLETION_INDEX}  # Dynamic PVC name
+
+---
+# PVC Template - Will need to be created for each replica
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-weights-${JOB_COMPLETION_INDEX}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-storage
+  resources:
+    requests:
+      storage: 200Gi
+
+---
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
