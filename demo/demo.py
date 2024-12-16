@@ -42,6 +42,10 @@ class TopologyAwareSchedulerWithMetrics:
         self.failed_placements = 0
     
     def submit_job(self, job: Job) -> bool:
+        # Skip job submission if nodes_required is 0
+        if job.nodes_required == 0:
+            return True
+            
         if self._can_schedule_job(job):
             self._allocate_resources(job)
             self.cluster.running_jobs[job.id] = job
@@ -125,13 +129,24 @@ def render_dashboard():
     with st.sidebar:
         st.header('Simulation Controls')
         job_probability = st.slider('Job Arrival Rate', 0.0, 1.0, 0.3)
-        job_sizes = st.multiselect('Job Sizes (nodes)', [2, 4, 8, 16], default=[2, 4, 8, 16])
+        job_sizes = st.multiselect('Job Sizes (nodes)', 
+                                 [0, 2, 4, 8, 16], 
+                                 default=[0],  # Start with 0 as default
+                                 help="Select job sizes (0 means no new jobs)")
+        
+        # Add validation for job sizes
+        if not job_sizes:
+            st.error("Please select at least one job size")
+            job_sizes = [0]  # Set default to 0 if nothing is selected
+            
         update_interval = st.slider('Update Interval (seconds)', 0.1, 2.0, 1.0)
 
-    if random.random() < job_probability:
+    # Only create new jobs if we have valid job sizes and job size isn't 0
+    if job_sizes and random.random() < job_probability:
+        selected_size = random.choice(job_sizes)
         job = Job(
             id=f"job_{st.session_state.iteration}",
-            nodes_required=random.choice(job_sizes),
+            nodes_required=selected_size,
             duration=random.randint(5, 15)
         )
         st.session_state.scheduler.submit_job(job)
@@ -154,7 +169,8 @@ def render_dashboard():
     node_matrix = st.session_state.scheduler.cluster.node_status.reshape(-1, 
         st.session_state.scheduler.cluster.nodes_per_leaf)
     
-    hover_text = [[f"Leaf Switch: {j+1}<br>Node: {i+1}<br>Status: {'In Use' if node_matrix[i][j] else 'Free'}"
+    # Fixed hover text logic to correctly show status
+    hover_text = [[f"Leaf Switch: {j+1}<br>Node: {i+1}<br>Status: {'In Use' if node_matrix[i][j] == NodeStatus.OCCUPIED.value else 'Free'}"
                   for j in range(node_matrix.shape[1])]
                  for i in range(node_matrix.shape[0])]
     
@@ -162,7 +178,7 @@ def render_dashboard():
         z=node_matrix,
         text=hover_text,
         hoverongaps=False,
-        colorscale=[[0, 'lightgrey'], [1, 'darkblue']],
+        colorscale=[[0, 'lightgrey'], [1, 'darkblue']], # 0 (FREE) is lightgrey, 1 (OCCUPIED) is darkblue
         showscale=False
     ))
     
