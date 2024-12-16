@@ -1,4 +1,4 @@
-# GPU Affinity and Node Selection
+# 1. GPU Affinity and Node Selection
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
@@ -18,7 +18,7 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
     spec:
-      # GPU Affinity Rules
+      # 1. GPU Affinity Rules
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -41,7 +41,7 @@ spec:
                 values: ["inference-service"]
             topologyKey: "kubernetes.io/hostname"
       
-      # Node Failure Handling
+      # 2. Node Failure Handling
       terminationGracePeriodSeconds: 60
       initContainers:
       - name: model-validator
@@ -74,7 +74,7 @@ spec:
             exec:
               command: ["/bin/sh", "-c", "sleep 30"]
         
-        # Monitoring Setup (could use existing monitorinh if exists)
+        # 3. Monitoring Setup
         ports:
         - containerPort: 8080
           name: inference
@@ -82,7 +82,7 @@ spec:
           name: metrics
         
         env:
-        - name: <NODE_NAME>
+        - name: NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
@@ -169,7 +169,7 @@ data:
     }
 
 ---
-# Link Existing Monitoring ConfigMap
+# Existing Monitoring ConfigMap
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -188,7 +188,7 @@ data:
             action: keep
 
 ---
-# Link Existing Pod Disruption Budget
+# Existing Pod Disruption Budget
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
@@ -200,7 +200,7 @@ spec:
       app: inference-service
 
 ---
-# <link existing solution> Existing Monitoring Service 
+# Existing Monitoring Service
 apiVersion: v1
 kind: Service
 metadata:
