@@ -1,0 +1,55 @@
+# Create a Persistent Volume for the NFS share
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: nfs-pv
+spec:
+  capacity:
+    storage: 100Gi  # Adjust size as needed
+  accessModes:
+    - ReadWriteMany  # Allows multiple pods to read/write
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    server: your-nfs-server.internal  # Replace with your NFS server address
+    path: "/shared"  # Replace with your NFS share path
+    
+---
+# Create a Persistent Volume Claim to use the NFS volume
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nfs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 100Gi  # Should match or be less than PV
+  storageClassName: ""  # Empty string since we're using a pre-provisioned PV
+  
+---
+# Example Job using the NFS storage
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: example-nfs-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: job-container
+        image: ubuntu:latest
+        command: ["bash", "-c"]
+        args:
+        - |
+          echo "Accessing NFS storage"
+          ls -la /mnt/nfs
+          echo "Job completed" > /mnt/nfs/job-output.txt
+        volumeMounts:
+        - name: nfs-storage
+          mountPath: /mnt/nfs
+      volumes:
+      - name: nfs-storage
+        persistentVolumeClaim:
+          claimName: nfs-pvc
+      restartPolicy: Never
