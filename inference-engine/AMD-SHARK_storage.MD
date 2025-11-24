@@ -1,4 +1,4 @@
-# Kubernetes NFS Storage Setup for SHARK Team
+# Kubernetes NFS Storage Setup for AMD-SHARK Team
 
 This guide explains how to set up shared NFS (Network File System) storage in our OCI Kubernetes cluster. 
 This storage solution allows all team members to access and share data across their Kubernetes jobs.
